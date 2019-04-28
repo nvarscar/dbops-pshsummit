@@ -9,7 +9,7 @@ Function cleanup {
     Invoke-DbaQuery -SqlInstance localhost -Query "CREATE DATABASE dbops" -SqlCredential $cred
     New-Item -Path C:\Lab\dbops, C:\Lab\packages -ItemType Directory -Force | Out-Null
     Remove-Item C:\Lab\dbops\*, C:\Lab\packages\* -Recurse
-    Copy-Item '.\builds\1. DB\*' C:\Lab\dbops -Recurse
+    Copy-Item 'C:\Lab\builds\1. DB\*' C:\Lab\dbops -Recurse
     
 }
 cleanup
@@ -44,7 +44,7 @@ cleanup
 Set-Location C:\Lab\dbops
 $result = Install-DBOSqlScript -ScriptPath .\*
 $result | Select-Object *
-Copy-Item '.\builds\7. Stored Procedures' C:\Lab\dbops -Recurse -PassThru
+Copy-Item 'C:\Lab\builds\7. Stored Procedures' C:\Lab\dbops -Recurse -PassThru
 Install-DBOSqlScript -ScriptPath .\*
 
 
@@ -58,14 +58,14 @@ Install-DBOSqlScript -ScriptPath .\*
 cleanup
 Set-Location C:\Lab\packages
 $package = New-DBOPackage -Name dbopsPackage -ScriptPath C:\Lab\dbops\* -Build 1.0
-$package | Format-List
+$package
 
 ## Adding builds to the package
 $newPackage = Add-DBOBuild -Path $package -ScriptPath 'C:\Lab\builds\7. Stored Procedures' -Build 2.0
 $newPackage | Select-Object *
 $newPackage | Get-Member
 $build = $newPackage.GetBuild('2.0')
-$build
+$build | Format-List
 $build | Get-Member
 $build.Scripts | Select-Object *
 $newPackage.GetBuild('1.0').Scripts[4].GetContent()
@@ -97,7 +97,10 @@ Install-DBOPackage .\dbopsPackage.zip -Configuration .\dbops.json
 
 
 ## Registering the package without deploying
-Register-DBOPackage .\dbopsPackage.zip -Configuration .\dbops.json
+cleanup
+$package = New-DBOPackage -Name dbopsPackage -ScriptPath C:\Lab\dbops\* -Build 1.0
+Register-DBOPackage $package
+Install-DBOPackage $package
 
 
 #endregion DEMO2
@@ -113,19 +116,24 @@ Get-ChildItem .
 ## Create a new package using continuous integration features and automatic versioning
 Invoke-DBOPackageCI -Name .\dbopsPackage.zip -ScriptPath C:\Lab\dbops\* -Version 0.5 | Select-Object Name, Builds, Version
 
+## Store package in a repository
+$dir = New-Item C:\Lab\packages\Repo -ItemType Directory
+Publish-DBOPackageArtifact -Path .\dbopsPackage.zip -Repository $dir
+
 ## Augment the package with a new build using same source folder
-Copy-Item 'C:\Lab\builds\7. Stored Procedures' C:\Lab\dbops -Recurse
+Copy-Item 'C:\Lab\builds\7. Stored Procedures' C:\Lab\dbops -Recurse -PassThru
 Invoke-DBOPackageCI -Name .\dbopsPackage.zip -ScriptPath C:\Lab\dbops\* | Select-Object Name, Builds, Version
 Get-DBOPackage .\dbopsPackage.zip | Select-Object -ExpandProperty Builds
 
 ### Essentially, the same as using 
 Add-DBOBuild  -Name .\dbopsPackage.zip -ScriptPath C:\Lab\dbops\* -Build 0.5.3 -Type New | Select-Object Name, Builds, Version
 
-## Store package in a repository
-$dir = New-Item C:\Lab\packages\Repo -ItemType Directory
-Publish-DBOPackageArtifact -Path .\dbopsPackage.zip -Repository $dir | Select-Object FullName, Length
+## Store new version in a repository
+Publish-DBOPackageArtifact -Path .\dbopsPackage.zip -Repository $dir
+Invoke-Item $dir
 
 ## Deploy the package from a repository
+Get-DBOPackageArtifact -Name dbopsPackage -Repository $dir -Version 0.5.1
 Get-DBOPackageArtifact -Name dbopsPackage -Repository $dir | Install-DBOPackage | Send-DBOMailMessage -PassThru
 
 #endregion DEMO3
