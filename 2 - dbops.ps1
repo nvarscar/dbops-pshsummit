@@ -72,7 +72,7 @@ $newPackage.GetBuild('1.0').Scripts[4].GetContent()
 
 
 ## Deploying package to a custom versioning table
-$results = $newPackage | Install-DBOPackage -DeploymentMethod SingleTransaction -SchemaVersionTable dbo.DeploymentLog
+$results = $newPackage | Install-DBOPackage -SchemaVersionTable dbo.DeploymentLog
 $results | Select-Object *
 
 
@@ -134,7 +134,7 @@ Invoke-Item $dir
 
 ## Deploy the package from a repository
 Get-DBOPackageArtifact -Name dbopsPackage -Repository $dir -Version 0.5.1
-Get-DBOPackageArtifact -Name dbopsPackage -Repository $dir | Install-DBOPackage | Send-DBOMailMessage -PassThru
+Get-DBOPackageArtifact -Name dbopsPackage -Repository $dir | Install-DBOPackage #| Send-DBOMailMessage -PassThru
 
 #endregion DEMO3
 
